@@ -132,7 +132,7 @@ endif()
 set(LJ_DEFINITIONS "")
 
 set(LJ_ENABLE_LARGEFILE 1)
-if (ANDROID AND (${CMAKE_SYSTEM_VERSION} LESS 21))
+if (ANDROID AND (CMAKE_SYSTEM_VERSION LESS 21))
   set(LJ_ENABLE_LARGEFILE 0)
 elseif (WIN32 OR MINGW)
   set(LJ_ENABLE_LARGEFILE 0)
@@ -497,13 +497,14 @@ endif()
 
 # Build the luajit static library
 add_library(libluajit ${luajit_sources})
+add_library(lua ALIAS libluajit)
 set_target_properties(libluajit PROPERTIES OUTPUT_NAME luajit)
 add_dependencies(libluajit
   buildvm_arch_h
   buildvm
   lj_gen_headers
   lj_gen_folddef)
-target_include_directories(libluajit PRIVATE
+target_include_directories(libluajit PUBLIC
   ${CMAKE_CURRENT_BINARY_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR})
 if (BUILD_SHARED_LIBS)
