@@ -38,12 +38,12 @@ add_executable(buildvm
 target_compile_options(buildvm PRIVATE
   ${EXTRA_COMPILER_FLAGS} ${CXX_ARCH_FLAGS})
 target_link_libraries(buildvm PRIVATE ${CXX_ARCH_FLAGS})
-if (LIBM)
-  target_link_libraries(buildvm PRIVATE ${LIBM_LIBRARIES})
+if (UNIX)
+  target_link_libraries(buildvm m)
 endif()
 
-if (MSVC)
-  set_target_properties(buildvm PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+if (CMAKE_OSX_ARCHITECTURES)
+  set_target_properties(buildvm PROPERTIES OSX_ARCHITECTURES "x86_64;arm64")
 endif()
 
 target_include_directories(buildvm PRIVATE
