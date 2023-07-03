@@ -20,29 +20,6 @@ set(LUAJIT_NUMMODE 0 CACHE STRING
 set(LUAJIT_USE_GDBJIT OFF CACHE BOOL "Enable the GDB JIT API")
 set(LUAJIT_FORCE_UTF8_FOPEN OFF CACHE BOOL "Enforce UTF8 paths charset in fopen()/freopen() calls, even on Windows")
 
-set(MINILUA_EXE minilua)
-if ("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")
-  set(MINILUA_EXE minilua.exe)
-endif()
-set(MINILUA_PATH ${CMAKE_CURRENT_BINARY_DIR}/minilua/${MINILUA_EXE})
-
-# Build the minilua for host platform
-if (NOT CMAKE_CROSSCOMPILING)
-  add_subdirectory(host/cmake/minilua)
-  set(MINILUA_PATH $<TARGET_FILE:minilua>)
-else()
-  make_directory(${CMAKE_CURRENT_BINARY_DIR}/minilua)
-
-  add_custom_command(OUTPUT ${MINILUA_PATH}
-    COMMAND ${CMAKE_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/host/cmake/minilua
-    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_CURRENT_BINARY_DIR}/minilua
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/minilua)
-
-  add_custom_target(minilua ALL
-    DEPENDS ${MINILUA_PATH}
-  )
-endif()
-
 include(TestBigEndian)
 test_big_endian(LJ_BIG_ENDIAN)
 
@@ -299,9 +276,16 @@ endif()
 
 set(VM_DASC_PATH ${CMAKE_CURRENT_SOURCE_DIR}/vm_${DASM_ARCH}.dasc)
 
-add_custom_command(OUTPUT ${BUILDVM_ARCH_H}
-  COMMAND ${MINILUA_PATH} ${DASM_PATH} ${DASM_FLAGS}
-          -o ${BUILDVM_ARCH_H} ${VM_DASC_PATH}
+add_executable(minilua host/minilua.c)
+if (UNIX)
+  target_link_libraries(minilua m)
+endif()
+if (CMAKE_OSX_ARCHITECTURES)
+  set_target_properties(minilua PROPERTIES OSX_ARCHITECTURES "x86_64;arm64")
+endif()
+add_custom_command(
+  OUTPUT ${BUILDVM_ARCH_H}
+  COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} minilua ${DASM_PATH} ${DASM_FLAGS} -o ${BUILDVM_ARCH_H} ${VM_DASC_PATH}
   DEPENDS minilua)
 add_custom_target(buildvm_arch_h ALL
   DEPENDS ${BUILDVM_ARCH_H}
@@ -319,38 +303,9 @@ if ("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")
   set(BUILDVM_EXE buildvm.exe)
 endif()
 
-if (NOT CMAKE_CROSSCOMPILING)
-  add_subdirectory(host/cmake/buildvm)
-  set(BUILDVM_PATH $<TARGET_FILE:buildvm>)
-  add_dependencies(buildvm buildvm_arch_h)
-else()
-  set(BUILDVM_PATH ${CMAKE_CURRENT_BINARY_DIR}/buildvm/${BUILDVM_EXE})
-
-  find_program(DEFAULT_HOST_C_COMPILER "gcc")
-  find_program(DEFAULT_HOST_CXX_COMPILER "g++")
-  find_program(DEFAULT_HOST_CMAKE_COMMAND "cmake")
-  mark_as_advanced(DEFAULT_HOST_C_COMPILER DEFAULT_HOST_CXX_COMPILER DEFAULT_HOST_CMAKE_COMMAND)
-
-  set(HOST_CMAKE_COMMAND ${DEFAULT_HOST_CMAKE_COMMAND} CACHE STRING "Bypass the host CMake command")
-  set(HOST_C_COMPILER ${DEFAULT_HOST_C_COMPILER} CACHE STRING "Bypass the host C compiler command")
-  set(HOST_CXX_COMPILER ${DEFAULT_HOST_CXX_COMPILER} CACHE STRING "Bypass the host C++ compiler command")
-
-  make_directory(${CMAKE_CURRENT_BINARY_DIR}/buildvm)
-
-  add_custom_command(OUTPUT ${BUILDVM_PATH}
-    COMMAND ${HOST_CMAKE_COMMAND} -E env CC="${HOST_C_COMPILER}" CXX="${HOST_CXX_COMPILER}"
-            ${HOST_CMAKE_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/host/cmake/buildvm
-                                  -DEXTRA_COMPILER_FLAGS_FILE=${BUILDVM_COMPILER_FLAGS_PATH}
-    COMMAND ${HOST_CMAKE_COMMAND} -E env CC="${HOST_C_COMPILER}" CXX="${HOST_CXX_COMPILER}"
-            ${HOST_CMAKE_COMMAND} --build ${CMAKE_CURRENT_BINARY_DIR}/buildvm
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/host/cmake/buildvm/CMakeLists.txt
-    DEPENDS buildvm_arch_h
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/buildvm)
-
-  add_custom_target(buildvm ALL
-    DEPENDS ${BUILDVM_PATH}
-  )
-endif()
+add_subdirectory(host/cmake/buildvm)
+set(BUILDVM_PATH $<TARGET_FILE:buildvm>)
+add_dependencies(buildvm buildvm_arch_h)
 
 set(LJVM_MODE elfasm)
 if (APPLE)
