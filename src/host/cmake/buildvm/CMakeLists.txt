@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.0)
 
-project(buildvm)
+project(buildvm LANGUAGES C)
+
+if (CMAKE_C_FLAGS MATCHES "-fsanitize")
+  message(STATUS "LuaJIT: disabling santizer on buildvm")
+  set(CMAKE_C_FLAGS "")
+endif()
 
 set(EXTRA_COMPILER_FLAGS_FILE "" CACHE PATH "Location of a file to specify extra compiler flags." )
 set(EXTRA_COMPILER_FLAGS "")
