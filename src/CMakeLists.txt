@@ -277,6 +277,7 @@ endif()
 set(VM_DASC_PATH ${CMAKE_CURRENT_SOURCE_DIR}/vm_${DASM_ARCH}.dasc)
 
 add_executable(minilua host/minilua.c)
+target_compile_options(minilua PRIVATE "") # don't use sanitizers
 if (UNIX)
   target_link_libraries(minilua m)
 endif()
